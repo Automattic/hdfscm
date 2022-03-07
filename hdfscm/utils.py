@@ -48,6 +48,25 @@ def is_hidden(fs_path, root):
     path = to_api_path(fs_path, root)
     return any(part.startswith('.') for part in path.split("/"))
 
+def get_prefix_from_fs_path(path, root_dir, shared_dir):
+    """
+    Returns the path prefix for the given path after resolving if it should be
+    served from the global shared dir or personal notebook dir.
+    """
+    if path.strip('/').split('/')[0] == 'shared':
+        return shared_dir
+    else:
+        return root_dir
+
+def get_prefix_from_hdfs_path(path, root_dir, shared_dir):
+    """
+    Returns the path prefix for the given path after resolving if the HDFS dir
+    is a personal notebook dir or the shared dir.
+    """
+    if path.startswith(shared_dir):
+        return shared_dir
+    else:
+        return root_dir
 
 @contextmanager
 def perm_to_403(path):
