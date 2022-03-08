@@ -1,10 +1,11 @@
+import hashlib
 import posixpath
 from notebook.services.contents.checkpoints import Checkpoints
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
 from pyarrow import hdfs
 
-from .utils import to_fs_path, perm_to_403, utcfromtimestamp, utcnow
+from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, get_prefix_from_hdfs_path, utcfromtimestamp, utcnow
 
 
 __all__ = ('HDFSCheckpoints', 'NoOpCheckpoints')
@@ -43,17 +44,11 @@ class HDFSCheckpoints(Checkpoints):
         config=True,
         help="""The directory name in which to keep file checkpoints
 
-        This is a path relative to the file's own directory.
+        This is a path relative to the user's notebook root dir.
 
         By default, it is .ipynb_checkpoints
         """
     )
-
-    root_dir = Unicode()
-
-    @default('root_dir')
-    def _default_root_dir(self):
-        return self.parent.root_dir
 
     fs = Instance(hdfs.HadoopFileSystem)
 
@@ -62,7 +57,7 @@ class HDFSCheckpoints(Checkpoints):
         return self.parent.fs
 
     def create_checkpoint(self, contents_mgr, path):
-        orig_path = to_fs_path(path, contents_mgr.root_dir)
+        orig_path = to_fs_path(path, get_prefix_from_fs_path(path, contents_mgr.root_dir, contents_mgr.shared_dir))
         cp_path = self._checkpoint_path(CHECKPOINT_ID, path)
         self.log.debug("Creating checkpoint %s", cp_path)
         self._copy(orig_path, cp_path)
@@ -70,7 +65,7 @@ class HDFSCheckpoints(Checkpoints):
 
     def restore_checkpoint(self, contents_mgr, checkpoint_id, path):
         cp_path = self._checkpoint_path(checkpoint_id, path)
-        orig_path = to_fs_path(path, contents_mgr.root_dir)
+        orig_path = to_fs_path(path, get_prefix_from_fs_path(path, contents_mgr.root_dir, contents_mgr.shared_dir))
         self.log.debug("Restoring checkpoint %s", cp_path)
         self._copy(cp_path, orig_path)
 
@@ -109,15 +104,16 @@ class HDFSCheckpoints(Checkpoints):
 
     def _checkpoint_path(self, checkpoint_id, path):
         path = path.strip('/')
-        hdfs_path = to_fs_path(path, self.root_dir)
-        directory, filename = posixpath.split(hdfs_path)
+        path_hash = hashlib.md5(path.encode('utf-8')).hexdigest()
+        directory, filename = posixpath.split(path)
         name, ext = posixpath.splitext(filename)
-        cp_filename = "{name}-{checkpoint_id}{ext}".format(
+        cp_filename = "{hash}-{name}-{checkpoint_id}{ext}".format(
+            hash=path_hash[:8],
             name=name,
             checkpoint_id=checkpoint_id,
             ext=ext,
         )
-        cp_dir = posixpath.join(directory, self.checkpoint_dir)
+        cp_dir = posixpath.join(self.parent.root_dir, self.checkpoint_dir)
         with perm_to_403(cp_dir):
             self.fs.mkdir(cp_dir)
         cp_path = posixpath.join(cp_dir, cp_filename)
