@@ -6,7 +6,6 @@ from typing import List
 import nbformat
 from notebook.services.contents.manager import ContentsManager
 from pyarrow import fs
-from pyarrow._fs import FileType, FileInfo, FileSelector
 from tornado.web import HTTPError
 from traitlets import Unicode, Integer, Bool, default
 
@@ -123,17 +122,17 @@ class HDFSContentsManager(ContentsManager):
         return self.path_exist(hdfs_path)
 
     def is_file(self, hdfs_path):
-        return self.fs.get_file_info(hdfs_path).type == FileType.File
+        return self.fs.get_file_info(hdfs_path).type == fs.FileType.File
 
     def is_dir(self, hdfs_path):
-        return self.fs.get_file_info(hdfs_path).type == FileType.Directory
+        return self.fs.get_file_info(hdfs_path).type == fs.FileType.Directory
 
-    def list_dir(self, hdfs_path, recursive=False) -> List[FileInfo]:
-        return self.fs.get_file_info(FileSelector(hdfs_path, recursive=recursive))
+    def list_dir(self, hdfs_path, recursive=False) -> List[fs.FileInfo]:
+        return self.fs.get_file_info(fs.FileSelector(hdfs_path, recursive=recursive))
 
-    def _info_and_check_kind(self, path, hdfs_path, kind: FileType) -> FileInfo:
+    def _info_and_check_kind(self, path, hdfs_path, kind: fs.FileType) -> fs.FileInfo:
         info = self.fs.get_file_info(hdfs_path)
-        if info.type == FileType.NotFound:
+        if info.type == fs.FileType.NotFound:
             raise HTTPError(404, "%s does not exist: %s"
                             % (kind, path))
 
@@ -141,7 +140,7 @@ class HDFSContentsManager(ContentsManager):
             raise HTTPError(400, "%s is not a %s" % (path, kind))
         return info
 
-    def _model_from_info(self, info: FileInfo, type: str=None):
+    def _model_from_info(self, info: fs.FileInfo, type: str=None):
         hdfs_path = info.path
         timestamp = info.mtime
 
@@ -173,7 +172,7 @@ class HDFSContentsManager(ContentsManager):
         return model
 
     def _dir_model(self, path, hdfs_path, content):
-        info = self._info_and_check_kind(path, hdfs_path, FileType.Directory)
+        info = self._info_and_check_kind(path, hdfs_path, fs.FileType.Directory)
         model = self._model_from_info(info, 'directory')
         if content:
             with perm_to_403(path):
@@ -188,7 +187,7 @@ class HDFSContentsManager(ContentsManager):
         return model
 
     def _file_model(self, path, hdfs_path, content, format):
-        info = self._info_and_check_kind(path, hdfs_path, FileType.File)
+        info = self._info_and_check_kind(path, hdfs_path, fs.FileType.File)
         model = self._model_from_info(info, 'file')
 
         if content:
@@ -207,7 +206,7 @@ class HDFSContentsManager(ContentsManager):
         return model
 
     def _notebook_model(self, path, hdfs_path, content=True):
-        info = self._info_and_check_kind(path, hdfs_path, FileType.File)
+        info = self._info_and_check_kind(path, hdfs_path, fs.FileType.File)
         model = self._model_from_info(info, 'notebook')
 
         if content:
@@ -353,7 +352,7 @@ class HDFSContentsManager(ContentsManager):
         return not files
 
     def path_exist(self, hdfs_path):
-        return self.fs.get_file_info(hdfs_path).type != FileType.NotFound
+        return self.fs.get_file_info(hdfs_path).type != fs.FileType.NotFound
 
     def delete_file(self, path):
         hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
