@@ -1,12 +1,12 @@
 import hashlib
 import posixpath
+
 from notebook.services.contents.checkpoints import Checkpoints
+from pyarrow import hdfs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
-from pyarrow import hdfs
 
-from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, get_prefix_from_hdfs_path, utcfromtimestamp, utcnow
-
+from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, utcfromtimestamp, utcnow
 
 __all__ = ('HDFSCheckpoints', 'NoOpCheckpoints')
 

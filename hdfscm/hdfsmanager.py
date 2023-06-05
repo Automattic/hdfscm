@@ -2,14 +2,13 @@ import mimetypes
 from base64 import encodebytes, decodebytes
 from getpass import getuser
 from typing import List
-from urllib.parse import urlsplit
 
 import nbformat
 from notebook.services.contents.manager import ContentsManager
-from pyarrow import fs, ArrowIOError
+from pyarrow import fs
 from pyarrow._fs import FileType, FileInfo, FileSelector
-from traitlets import Unicode, Integer, Bool, default
 from tornado.web import HTTPError
+from traitlets import Unicode, Integer, Bool, default
 
 from .checkpoints import HDFSCheckpoints
 from .utils import (to_fs_path, to_api_path, is_hidden, perm_to_403,
