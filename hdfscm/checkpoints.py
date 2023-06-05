@@ -98,6 +98,7 @@ class HDFSCheckpoints(Checkpoints):
     def _checkpoint_model(self, checkpoint_id, hdfs_path):
         with perm_to_403(hdfs_path):
             info = self.fs.get_file_info(hdfs_path)
+        last_modified = info.mtime
         return {'id': checkpoint_id,
                 'last_modified': last_modified}
 

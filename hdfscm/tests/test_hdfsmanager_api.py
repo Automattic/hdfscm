@@ -70,14 +70,16 @@ class HDFSContentsAPITest(APITest):
         hdfs_path = self.get_hdfs_path(api_path)
         if self.fs.get_file_info(hdfs_path).type == fs.FileType.Directory:
             self.fs.delete_dir(hdfs_path)
+        elif self.fs.get_file_info(hdfs_path).type == fs.FileType.File:
+            self.fs.delete_file(hdfs_path)
 
     delete_dir = delete_file
 
     def isfile(self, api_path):
-        return self.fs.isfile(self.get_hdfs_path(api_path))
+        return self.fs.get_file_info(self.get_hdfs_path(api_path)).type == fs.FileType.File
 
     def isdir(self, api_path):
-        return self.fs.isdir(self.get_hdfs_path(api_path))
+        return self.fs.get_file_info(self.get_hdfs_path(api_path)).type == fs.FileType.Directory
 
     # Test overrides.
     def test_checkpoints_separate_root(self):
