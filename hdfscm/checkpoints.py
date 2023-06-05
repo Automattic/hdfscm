@@ -1,12 +1,12 @@
 import hashlib
 import posixpath
+
 from notebook.services.contents.checkpoints import Checkpoints
+from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
-from pyarrow import hdfs
 
-from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, get_prefix_from_hdfs_path, utcfromtimestamp, utcnow
-
+from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, utcfromtimestamp, utcnow
 
 __all__ = ('HDFSCheckpoints', 'NoOpCheckpoints')
 
@@ -50,7 +50,7 @@ class HDFSCheckpoints(Checkpoints):
         """
     )
 
-    fs = Instance(hdfs.HadoopFileSystem)
+    fs = Instance(fs.HadoopFileSystem)
 
     @default('fs')
     def _default_fs(self):
@@ -72,7 +72,7 @@ class HDFSCheckpoints(Checkpoints):
     def rename_checkpoint(self, checkpoint_id, old_path, new_path):
         old_cp_path = self._checkpoint_path(checkpoint_id, old_path)
         new_cp_path = self._checkpoint_path(checkpoint_id, new_path)
-        if self.fs.isfile(old_cp_path):
+        if self._is_file(old_cp_path):
             self.log.debug("Renaming checkpoint %s -> %s",
                            old_cp_path, new_cp_path)
             self._rename(old_cp_path, new_cp_path)
@@ -80,7 +80,7 @@ class HDFSCheckpoints(Checkpoints):
     def delete_checkpoint(self, checkpoint_id, path):
         path = path.strip('/')
         cp_path = self._checkpoint_path(checkpoint_id, path)
-        if not self.fs.isfile(cp_path):
+        if not self._is_file(cp_path):
             raise HTTPError(
                 404, 'Checkpoint does not exist: %s@%s' % (path, checkpoint_id)
             )
@@ -90,15 +90,15 @@ class HDFSCheckpoints(Checkpoints):
     def list_checkpoints(self, path):
         path = path.strip('/')
         cp_path = self._checkpoint_path(CHECKPOINT_ID, path)
-        if not self.fs.isfile(cp_path):
+        if not self._is_file(cp_path):
             return []
         else:
             return [self._checkpoint_model(CHECKPOINT_ID, cp_path)]
 
     def _checkpoint_model(self, checkpoint_id, hdfs_path):
         with perm_to_403(hdfs_path):
-            info = self.fs.info(hdfs_path)
-        last_modified = utcfromtimestamp(info['last_modified'])
+            info = self.fs.get_file_info(hdfs_path)
+        last_modified = utcfromtimestamp(info.mtime)
         return {'id': checkpoint_id,
                 'last_modified': last_modified}
 
@@ -115,23 +115,21 @@ class HDFSCheckpoints(Checkpoints):
         )
         cp_dir = posixpath.join(self.parent.root_dir, self.checkpoint_dir)
         with perm_to_403(cp_dir):
-            self.fs.mkdir(cp_dir)
+            self.fs.create_dir(cp_dir)
         cp_path = posixpath.join(cp_dir, cp_filename)
         return cp_path
 
+    def _is_file(self, hdfs_path):
+        return self.fs.get_file_info(hdfs_path).type == fs.FileType.File
+
     def _copy(self, src_path, dest_path):
-        # TODO: pyarrow.hdfs currently doesn't implement copy, so this is
-        # less efficient than it should be.
         with perm_to_403(src_path):
-            with self.fs.open(src_path, 'rb') as source:
-                with perm_to_403(dest_path):
-                    with self.fs.open(dest_path, 'wb') as dest:
-                        dest.upload(source)
+            self.fs.copy_file(src_path, dest_path)
 
     def _rename(self, old, new):
         with perm_to_403(old):
-            self.fs.rename(old, new)
+            self.fs.move(old, new)
 
     def _delete(self, cp_path):
         with perm_to_403(cp_path):
-            self.fs.delete(cp_path)
+            self.fs.delete_file(cp_path)
