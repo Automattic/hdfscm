@@ -6,6 +6,7 @@ from traitlets.config import Config
 
 from hdfscm import HDFSContentsManager
 from hdfscm.utils import to_fs_path
+from pyarrow import fs
 
 from .conftest import random_root_dir
 
@@ -34,7 +35,6 @@ class HDFSContentsAPITest(APITest):
         """See setUpClass above"""
         import socket
         socket.has_ipv6 = cls._has_ipv6
-        cls.notebook.contents_manager.fs.close()
         super().teardown_class()
 
     def setUp(self):
@@ -43,7 +43,7 @@ class HDFSContentsAPITest(APITest):
 
     def tearDown(self):
         super().tearDown()
-        self.fs.delete(self.root_dir, recursive=True)
+        self.fs.delete_dir(self.root_dir)
 
     @property
     def fs(self):
@@ -53,11 +53,11 @@ class HDFSContentsAPITest(APITest):
         return to_fs_path(api_path, self.root_dir)
 
     def make_dir(self, api_path):
-        self.fs.mkdir(self.get_hdfs_path(api_path))
+        self.fs.create_dir(self.get_hdfs_path(api_path))
 
     def make_blob(self, api_path, blob):
         hdfs_path = self.get_hdfs_path(api_path)
-        with self.fs.open(hdfs_path, 'wb') as f:
+        with self.fs.open_output_stream(hdfs_path) as f:
             f.write(blob)
 
     def make_txt(self, api_path, txt):
@@ -68,8 +68,8 @@ class HDFSContentsAPITest(APITest):
 
     def delete_file(self, api_path):
         hdfs_path = self.get_hdfs_path(api_path)
-        if self.fs.exists(hdfs_path):
-            self.fs.delete(hdfs_path, recursive=True)
+        if self.fs.get_file_info(hdfs_path).type == fs.FileType.Directory:
+            self.fs.delete_dir(hdfs_path)
 
     delete_dir = delete_file
 

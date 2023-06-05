@@ -18,10 +18,6 @@ class _utc_tzinfo(tzinfo):
 _UTC = _utc_tzinfo()
 
 
-def utcfromtimestamp(t):
-    return datetime.utcfromtimestamp(t).replace(tzinfo=_UTC)
-
-
 def utcnow():
     return datetime.now().replace(tzinfo=_UTC)
 

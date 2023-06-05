@@ -6,7 +6,7 @@ from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
 
-from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, utcfromtimestamp, utcnow
+from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, utcnow
 
 __all__ = ('HDFSCheckpoints', 'NoOpCheckpoints')
 
@@ -98,7 +98,6 @@ class HDFSCheckpoints(Checkpoints):
     def _checkpoint_model(self, checkpoint_id, hdfs_path):
         with perm_to_403(hdfs_path):
             info = self.fs.get_file_info(hdfs_path)
-        last_modified = utcfromtimestamp(info.mtime)
         return {'id': checkpoint_id,
                 'last_modified': last_modified}
 

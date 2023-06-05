@@ -11,8 +11,7 @@ from traitlets import Unicode, Integer, Bool, default
 
 from .checkpoints import HDFSCheckpoints
 from .utils import (to_fs_path, to_api_path, is_hidden, perm_to_403,
-                    get_prefix_from_fs_path, get_prefix_from_hdfs_path,
-                    utcfromtimestamp)
+                    get_prefix_from_fs_path, get_prefix_from_hdfs_path)
 
 
 class HDFSContentsManager(ContentsManager):
@@ -79,7 +78,7 @@ class HDFSContentsManager(ContentsManager):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.log.debug("Connecting to HDFS at %s:%d",
+        self.log.info("Connecting to HDFS at %s:%d",
                        self.hdfs_host, self.hdfs_port)
         self.fs = fs.HadoopFileSystem(host=self.hdfs_host, port=self.hdfs_port)
         if self.create_root_dir_on_startup:
@@ -148,7 +147,7 @@ class HDFSContentsManager(ContentsManager):
         name = path.rsplit('/', 1)[-1]
 
         if type is None:
-            if self.is_dir(info.type):
+            if info.type == fs.FileType.Directory:
                 type = 'directory'
             elif path.endswith('.ipynb'):
                 type = 'notebook'
@@ -157,7 +156,6 @@ class HDFSContentsManager(ContentsManager):
 
         mimetype = mimetypes.guess_type(path)[0] if type == 'file' else None
         size = info.size if type != 'directory' else None
-        timestamp = utcfromtimestamp(timestamp)
         model = {'name': name,
                  'path': path,
                  'last_modified': timestamp,
