@@ -95,7 +95,7 @@ class HDFSContentsAPITest(APITest):
     def test_list_dirs(self):
         dirs = self.dirs_only(self.api.list().json())
         dir_names = {normalize('NFC', d['name']) for d in dirs}
-        top_level_dirs = self.top_level_dirs | { 'shared' } # adding shared folder to top level folders of APITest
+        top_level_dirs = self.top_level_dirs | {'shared'}  # adding shared folder to top level folders of APITest
         self.assertEqual(dir_names, top_level_dirs)  # Excluding hidden dirs
 
     def test_delete_dirs(self):
@@ -103,7 +103,7 @@ class HDFSContentsAPITest(APITest):
         for name in sorted(self.dirs + ['/'], key=len, reverse=True):
             listing = self.api.list(name).json()['content']
             for model in listing:
-                if model['path'] != 'shared': # Shared folder can't be deleted
+                if model['path'] != 'shared':  # Shared folder can't be deleted
                     self.api.delete(model['path'])
         listing = [file['path'] for file in self.api.list('/').json()['content']]
         expected = ['shared']

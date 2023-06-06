@@ -78,7 +78,7 @@ class HDFSContentsManager(ContentsManager):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.log.info("Connecting to HDFS at %s:%d",
+        self.log.debug("Connecting to HDFS at %s:%d",
                        self.hdfs_host, self.hdfs_port)
         self.fs = fs.HadoopFileSystem(host=self.hdfs_host, port=self.hdfs_port)
         if self.create_root_dir_on_startup:
