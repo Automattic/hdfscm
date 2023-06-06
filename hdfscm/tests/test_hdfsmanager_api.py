@@ -3,7 +3,7 @@ from notebook.services.contents.tests.test_contents_api import (
     APITest, assert_http_error
 )
 from traitlets.config import Config
-
+from unicodedata import normalize
 from hdfscm import HDFSContentsManager
 from hdfscm.utils import to_fs_path
 from pyarrow import fs
@@ -88,6 +88,26 @@ class HDFSContentsAPITest(APITest):
     def test_delete_non_empty_dir(self):
         with assert_http_error(400):
             self.api.delete('å b')
+
+    def dirs_only(self, dir_model):
+        return [x for x in dir_model['content'] if x['type']=='directory']
+
+    def test_list_dirs(self):
+        dirs = self.dirs_only(self.api.list().json())
+        dir_names = {normalize('NFC', d['name']) for d in dirs}
+        top_level_dirs = self.top_level_dirs | { 'shared' } # adding shared folder to top level folders of APITest
+        self.assertEqual(dir_names, top_level_dirs)  # Excluding hidden dirs
+
+    def test_delete_dirs(self):
+        # depth-first delete everything, so we don't try to delete empty directories
+        for name in sorted(self.dirs + ['/'], key=len, reverse=True):
+            listing = self.api.list(name).json()['content']
+            for model in listing:
+                if model['path'] != 'shared': # Shared folder can't be deleted
+                    self.api.delete(model['path'])
+        listing = [file['path'] for file in self.api.list('/').json()['content']]
+        expected = ['shared']
+        self.assertEqual(listing, expected)
 
 
 del APITest
