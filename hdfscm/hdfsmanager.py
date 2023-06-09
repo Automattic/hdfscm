@@ -4,7 +4,7 @@ from getpass import getuser
 from typing import List
 
 import nbformat
-from notebook.services.contents.manager import ContentsManager
+from jupyter_server.services.contents.manager import ContentsManager
 from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Integer, Bool, default
