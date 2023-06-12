@@ -1,7 +1,7 @@
 import hashlib
 import posixpath
 
-from notebook.services.contents.checkpoints import Checkpoints
+from jupyter_server.services.contents.checkpoints import Checkpoints
 from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
