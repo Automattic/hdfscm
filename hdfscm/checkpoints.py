@@ -2,10 +2,10 @@ import hashlib
 import os
 import posixpath
 
-if 'JUPYTER_SERVER_ROOT' in os.environ:
-    from jupyter_server.services.contents.checkpoints import Checkpoints
-else:
+if os.getenv('JUPYTER_ENV') == 'dev':
     from notebook.services.contents.checkpoints import Checkpoints
+else:
+    from jupyter_server.services.contents.checkpoints import Checkpoints
 from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
