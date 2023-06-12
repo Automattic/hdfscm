@@ -1,10 +1,14 @@
 import mimetypes
+import os
 from base64 import encodebytes, decodebytes
 from getpass import getuser
 from typing import List
 
 import nbformat
-from jupyter_server.services.contents.manager import ContentsManager
+if 'JUPYTER_SERVER_ROOT' in os.environ:
+    from jupyter_server.services.contents.manager import ContentsManager
+else:
+    from notebook.services.contents.manager import ContentsManager
 from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Integer, Bool, default

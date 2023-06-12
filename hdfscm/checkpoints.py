@@ -1,7 +1,11 @@
 import hashlib
+import os
 import posixpath
 
-from jupyter_server.services.contents.checkpoints import Checkpoints
+if 'JUPYTER_SERVER_ROOT' in os.environ:
+    from jupyter_server.services.contents.checkpoints import Checkpoints
+else:
+    from notebook.services.contents.checkpoints import Checkpoints
 from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default

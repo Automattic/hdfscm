@@ -1,6 +1,6 @@
 import nbformat
 from notebook.services.contents.tests.test_contents_api import (
-    APITest, assert_http_error
+    assert_http_error, APITest
 )
 from traitlets.config import Config
 from unicodedata import normalize
