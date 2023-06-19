@@ -2,7 +2,7 @@ import hashlib
 import os
 import posixpath
 
-if os.getenv('JUPYTER_ENV') == 'dev':
+if os.getenv('JUPYTER_ENV') == 'test':
     from notebook.services.contents.checkpoints import Checkpoints
 else:
     from jupyter_server.services.contents.checkpoints import Checkpoints

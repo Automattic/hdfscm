@@ -5,7 +5,7 @@ from getpass import getuser
 from typing import List
 
 import nbformat
-if os.getenv('JUPYTER_ENV') == 'dev':
+if os.getenv('JUPYTER_ENV') == 'test':
     from notebook.services.contents.manager import ContentsManager
 else:
     from jupyter_server.services.contents.manager import ContentsManager
