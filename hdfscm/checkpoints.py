@@ -1,11 +1,16 @@
+import hashlib
+import os
 import posixpath
-from notebook.services.contents.checkpoints import Checkpoints
+
+if os.getenv('JUPYTER_ENV') == 'test':
+    from notebook.services.contents.checkpoints import Checkpoints
+else:
+    from jupyter_server.services.contents.checkpoints import Checkpoints
+from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
-from pyarrow import hdfs
 
-from .utils import to_fs_path, perm_to_403, utcfromtimestamp, utcnow
-
+from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, utcnow
 
 __all__ = ('HDFSCheckpoints', 'NoOpCheckpoints')
 
@@ -43,26 +48,20 @@ class HDFSCheckpoints(Checkpoints):
         config=True,
         help="""The directory name in which to keep file checkpoints
 
-        This is a path relative to the file's own directory.
+        This is a path relative to the user's notebook root dir.
 
         By default, it is .ipynb_checkpoints
         """
     )
 
-    root_dir = Unicode()
-
-    @default('root_dir')
-    def _default_root_dir(self):
-        return self.parent.root_dir
-
-    fs = Instance(hdfs.HadoopFileSystem)
+    fs = Instance(fs.HadoopFileSystem)
 
     @default('fs')
     def _default_fs(self):
         return self.parent.fs
 
     def create_checkpoint(self, contents_mgr, path):
-        orig_path = to_fs_path(path, contents_mgr.root_dir)
+        orig_path = to_fs_path(path, get_prefix_from_fs_path(path, contents_mgr.root_dir, contents_mgr.shared_dir))
         cp_path = self._checkpoint_path(CHECKPOINT_ID, path)
         self.log.debug("Creating checkpoint %s", cp_path)
         self._copy(orig_path, cp_path)
@@ -70,14 +69,14 @@ class HDFSCheckpoints(Checkpoints):
 
     def restore_checkpoint(self, contents_mgr, checkpoint_id, path):
         cp_path = self._checkpoint_path(checkpoint_id, path)
-        orig_path = to_fs_path(path, contents_mgr.root_dir)
+        orig_path = to_fs_path(path, get_prefix_from_fs_path(path, contents_mgr.root_dir, contents_mgr.shared_dir))
         self.log.debug("Restoring checkpoint %s", cp_path)
         self._copy(cp_path, orig_path)
 
     def rename_checkpoint(self, checkpoint_id, old_path, new_path):
         old_cp_path = self._checkpoint_path(checkpoint_id, old_path)
         new_cp_path = self._checkpoint_path(checkpoint_id, new_path)
-        if self.fs.isfile(old_cp_path):
+        if self._is_file(old_cp_path):
             self.log.debug("Renaming checkpoint %s -> %s",
                            old_cp_path, new_cp_path)
             self._rename(old_cp_path, new_cp_path)
@@ -85,7 +84,7 @@ class HDFSCheckpoints(Checkpoints):
     def delete_checkpoint(self, checkpoint_id, path):
         path = path.strip('/')
         cp_path = self._checkpoint_path(checkpoint_id, path)
-        if not self.fs.isfile(cp_path):
+        if not self._is_file(cp_path):
             raise HTTPError(
                 404, 'Checkpoint does not exist: %s@%s' % (path, checkpoint_id)
             )
@@ -95,47 +94,46 @@ class HDFSCheckpoints(Checkpoints):
     def list_checkpoints(self, path):
         path = path.strip('/')
         cp_path = self._checkpoint_path(CHECKPOINT_ID, path)
-        if not self.fs.isfile(cp_path):
+        if not self._is_file(cp_path):
             return []
         else:
             return [self._checkpoint_model(CHECKPOINT_ID, cp_path)]
 
     def _checkpoint_model(self, checkpoint_id, hdfs_path):
         with perm_to_403(hdfs_path):
-            info = self.fs.info(hdfs_path)
-        last_modified = utcfromtimestamp(info['last_modified'])
+            info = self.fs.get_file_info(hdfs_path)
+        last_modified = info.mtime
         return {'id': checkpoint_id,
                 'last_modified': last_modified}
 
     def _checkpoint_path(self, checkpoint_id, path):
         path = path.strip('/')
-        hdfs_path = to_fs_path(path, self.root_dir)
-        directory, filename = posixpath.split(hdfs_path)
+        path_hash = hashlib.md5(path.encode('utf-8')).hexdigest()
+        directory, filename = posixpath.split(path)
         name, ext = posixpath.splitext(filename)
-        cp_filename = "{name}-{checkpoint_id}{ext}".format(
+        cp_filename = "{hash}-{name}-{checkpoint_id}{ext}".format(
+            hash=path_hash[:8],
             name=name,
             checkpoint_id=checkpoint_id,
             ext=ext,
         )
-        cp_dir = posixpath.join(directory, self.checkpoint_dir)
+        cp_dir = posixpath.join(self.parent.root_dir, self.checkpoint_dir)
         with perm_to_403(cp_dir):
-            self.fs.mkdir(cp_dir)
+            self.fs.create_dir(cp_dir)
         cp_path = posixpath.join(cp_dir, cp_filename)
         return cp_path
 
+    def _is_file(self, hdfs_path):
+        return self.fs.get_file_info(hdfs_path).type == fs.FileType.File
+
     def _copy(self, src_path, dest_path):
-        # TODO: pyarrow.hdfs currently doesn't implement copy, so this is
-        # less efficient than it should be.
         with perm_to_403(src_path):
-            with self.fs.open(src_path, 'rb') as source:
-                with perm_to_403(dest_path):
-                    with self.fs.open(dest_path, 'wb') as dest:
-                        dest.upload(source)
+            self.fs.copy_file(src_path, dest_path)
 
     def _rename(self, old, new):
         with perm_to_403(old):
-            self.fs.rename(old, new)
+            self.fs.move(old, new)
 
     def _delete(self, cp_path):
         with perm_to_403(cp_path):
-            self.fs.delete(cp_path)
+            self.fs.delete_file(cp_path)
