@@ -25,4 +25,4 @@ setup(name='jupyter-hdfscm',
                    'Programming Language :: Python :: 3'],
       packages=['hdfscm'],
       python_requires='>=3.5',
-      install_requires=['notebook>=6.5.4', 'pyarrow>=12.0.0,<13.0.0'])
+      install_requires=['notebook>=6.5.4', 'pyarrow>=12.0.0'])
