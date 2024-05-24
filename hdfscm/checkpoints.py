@@ -10,7 +10,7 @@ from pyarrow import fs
 from tornado.web import HTTPError
 from traitlets import Unicode, Instance, default
 
-from .utils import to_fs_path, perm_to_403, get_prefix_from_fs_path, utcnow
+from .utils import to_fs_path, perm_to_403, utcnow
 
 __all__ = ('HDFSCheckpoints', 'NoOpCheckpoints')
 
@@ -61,7 +61,7 @@ class HDFSCheckpoints(Checkpoints):
         return self.parent.fs
 
     def create_checkpoint(self, contents_mgr, path):
-        orig_path = to_fs_path(path, get_prefix_from_fs_path(path, contents_mgr.root_dir, contents_mgr.shared_dir))
+        orig_path = to_fs_path(path, contents_mgr.root_dir)
         cp_path = self._checkpoint_path(CHECKPOINT_ID, path)
         self.log.debug("Creating checkpoint %s", cp_path)
         self._copy(orig_path, cp_path)
@@ -69,7 +69,7 @@ class HDFSCheckpoints(Checkpoints):
 
     def restore_checkpoint(self, contents_mgr, checkpoint_id, path):
         cp_path = self._checkpoint_path(checkpoint_id, path)
-        orig_path = to_fs_path(path, get_prefix_from_fs_path(path, contents_mgr.root_dir, contents_mgr.shared_dir))
+        orig_path = to_fs_path(path, contents_mgr.root_dir)
         self.log.debug("Restoring checkpoint %s", cp_path)
         self._copy(cp_path, orig_path)
 

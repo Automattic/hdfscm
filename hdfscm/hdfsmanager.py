@@ -14,8 +14,7 @@ from tornado.web import HTTPError
 from traitlets import Unicode, Integer, Bool, default
 
 from .checkpoints import HDFSCheckpoints
-from .utils import (to_fs_path, to_api_path, is_hidden, perm_to_403,
-                    get_prefix_from_fs_path, get_prefix_from_hdfs_path)
+from .utils import to_fs_path, to_api_path, is_hidden, perm_to_403
 
 
 class HDFSContentsManager(ContentsManager):
@@ -54,12 +53,6 @@ class HDFSContentsManager(ContentsManager):
         help="Create ``root_dir`` on startup if it doesn't already exist"
     )
 
-    shared_dir = Unicode(
-        default_value="/user/jupyter/notebooks",
-        config=True,
-        help="The root directory to serve shared notebooks from."
-    )
-
     hdfs_host = Unicode(
         default_value="default",
         config=True,
@@ -91,8 +84,6 @@ class HDFSContentsManager(ContentsManager):
     def ensure_root_directory(self):
         self.log.debug("Creating root notebooks directory: %s", self.root_dir)
         self.fs.create_dir(self.root_dir)
-        self.log.debug("Creating shared notebooks directory (fake target): %s/shared", self.root_dir)
-        self.fs.create_dir(f"{self.root_dir}/shared")
 
     def _checkpoints_class_default(self):
         return HDFSCheckpoints
@@ -109,19 +100,19 @@ class HDFSContentsManager(ContentsManager):
             return "file"
 
     def is_hidden(self, path):
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
-        return is_hidden(hdfs_path, get_prefix_from_hdfs_path(hdfs_path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
+        return is_hidden(hdfs_path, self.root_dir)
 
     def file_exists(self, path):
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
         return self.is_file(hdfs_path)
 
     def dir_exists(self, path):
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
         return self.is_dir(hdfs_path)
 
     def exists(self, path):
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
         return self.path_exist(hdfs_path)
 
     def is_file(self, hdfs_path):
@@ -147,7 +138,7 @@ class HDFSContentsManager(ContentsManager):
         hdfs_path = info.path
         timestamp = info.mtime
 
-        path = to_api_path(hdfs_path, get_prefix_from_hdfs_path(hdfs_path, self.root_dir, self.shared_dir))
+        path = to_api_path(hdfs_path, self.root_dir)
         name = path.rsplit('/', 1)[-1]
 
         if type is None:
@@ -252,11 +243,11 @@ class HDFSContentsManager(ContentsManager):
             raise HTTPError(400, "Unreadable Notebook: %s\n%r" % (path, e))
 
     def get(self, path, content=True, type=None, format=None):
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
 
         if not self.path_exist(hdfs_path):
             raise HTTPError(404, 'No such file or directory: %s' % path)
-        elif not self.allow_hidden and is_hidden(hdfs_path, get_prefix_from_hdfs_path(hdfs_path, self.root_dir, self.shared_dir)):
+        elif not self.allow_hidden and is_hidden(hdfs_path, self.root_dir):
             self.log.debug("Refusing to serve hidden directory %r", hdfs_path)
             raise HTTPError(404, 'No such file or directory: %s' % path)
 
@@ -272,7 +263,7 @@ class HDFSContentsManager(ContentsManager):
         return model
 
     def _save_directory(self, path, hdfs_path):
-        if not self.allow_hidden and is_hidden(hdfs_path, get_prefix_from_hdfs_path(hdfs_path, self.root_dir, self.shared_dir)):
+        if not self.allow_hidden and is_hidden(hdfs_path, self.root_dir):
             raise HTTPError(400, 'Cannot create hidden directory %r' % path)
 
         if not self.exists(hdfs_path):
@@ -326,7 +317,7 @@ class HDFSContentsManager(ContentsManager):
         if 'content' not in model and typ != 'directory':
             raise HTTPError(400, 'No file content provided')
 
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
 
         message = None
         if typ == 'notebook':
@@ -357,7 +348,7 @@ class HDFSContentsManager(ContentsManager):
         return self.fs.get_file_info(hdfs_path).type != fs.FileType.NotFound
 
     def delete_file(self, path):
-        hdfs_path = to_fs_path(path, get_prefix_from_fs_path(path, self.root_dir, self.shared_dir))
+        hdfs_path = to_fs_path(path, self.root_dir)
 
         if not self.path_exist(hdfs_path):
             raise HTTPError(
@@ -379,8 +370,8 @@ class HDFSContentsManager(ContentsManager):
         if old_path == new_path:
             return
 
-        old_hdfs_path = to_fs_path(old_path, get_prefix_from_fs_path(old_path, self.root_dir, self.shared_dir))
-        new_hdfs_path = to_fs_path(new_path, get_prefix_from_fs_path(new_path, self.root_dir, self.shared_dir))
+        old_hdfs_path = to_fs_path(old_path, self.root_dir)
+        new_hdfs_path = to_fs_path(new_path, self.root_dir)
 
         if self.path_exist(new_hdfs_path):
             raise HTTPError(409, 'File already exists: %s' % new_path)
