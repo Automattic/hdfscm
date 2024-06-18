@@ -73,5 +73,3 @@ def perm_to_403(path):
         # detect it from the string instead.
         if 'Permission denied' in str(exc):
             raise HTTPError(403, 'Permission denied: %s' % path)
-        else:
-            raise HTTPError(500, 'ArrowIOError: %s' % exc)
